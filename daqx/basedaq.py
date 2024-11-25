@@ -1,5 +1,5 @@
 # %%
-from daqx.util import *
+from .util import * # the imported components will be available for other modules if "from .basedaq import *"
 
 # %% [markdown]
 '''

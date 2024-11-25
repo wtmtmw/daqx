@@ -1,5 +1,5 @@
 # %%
-from daqx.basedaq import *
+from .basedaq import * # all .util components were imported in .basedaq already
 import ctypes
 from mcculw import ul
 from mcculw.enums import ScanOptions, FunctionType, BoardInfo, InfoType, ULRange, TrigType, AnalogInputMode, Status
