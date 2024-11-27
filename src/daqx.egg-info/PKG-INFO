@@ -1,3 +1,21 @@
+Metadata-Version: 2.1
+Name: daqx
+Version: 0.0.1
+Project-URL: Homepage, https://github.com/wtmtmw/daqx
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcculw
+Requires-Dist: ctypes
+Requires-Dist: numpy
+Requires-Dist: traceback
+Requires-Dist: time
+Requires-Dist: threading
+Requires-Dist: inspect
+
 ![License](https://img.shields.io/badge/license-MIT-blue)
 # daqx
 :warning: This project is still under construction / development
@@ -15,7 +33,6 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 
 ## Installation
 - `pip install daqx`
-
 
 ## Event Callbacks
 **Start callback -** AI, AO
