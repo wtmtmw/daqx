@@ -1,0 +1,51 @@
+Metadata-Version: 2.1
+Name: daqx
+Version: 0.0.1
+Project-URL: Homepage, https://github.com/wtmtmw/daqx
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcculw
+Requires-Dist: ctypes
+Requires-Dist: numpy
+Requires-Dist: traceback
+Requires-Dist: time
+Requires-Dist: threading
+Requires-Dist: inspect
+
+![License](https://img.shields.io/badge/license-MIT-blue)
+# daqx
+:warning: This project is still under construction / development
+
+Python data acquisition toolbox - Wrapper that provides high-level layers for controlling data acquisition boards. It also handles low-level memory management, data transfer, and provides various types of event callbacks.
+
+Currently, it only supports boards from Measurement Computing. Support for National Instruments may be added in the future.
+
+## Table of Contents
+- [Installation](#installation)
+- [Event Callbacks](#event-callbacks)
+- [Usage](#usage)
+- [Tutorial](#tutorial)
+
+
+## Installation
+- `pip install daqx`
+
+## Event Callbacks
+**Start callback -** AI, AO
+
+**Stop callback -** AI, AO
+
+**Trigger callback -** AI
+
+**Samples acquired callback -** AI
+
+## Usage
+### TODO
+
+## Tutorial
+### TODO
+

@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+src/daqx/__init__ .py
+src/daqx/basedaq.py
+src/daqx/mccdaq.py
+src/daqx/util.py
+src/daqx.egg-info/PKG-INFO
+src/daqx.egg-info/SOURCES.txt
+src/daqx.egg-info/dependency_links.txt
+src/daqx.egg-info/requires.txt
+src/daqx.egg-info/top_level.txt
