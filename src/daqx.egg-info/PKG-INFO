@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: daqx
-Version: 0.0.1
+Version: 0.0.1.1
 Project-URL: Homepage, https://github.com/wtmtmw/daqx
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
@@ -9,12 +9,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mcculw
-Requires-Dist: ctypes
 Requires-Dist: numpy
-Requires-Dist: traceback
-Requires-Dist: time
-Requires-Dist: threading
-Requires-Dist: inspect
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 # daqx
