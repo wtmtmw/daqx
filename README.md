@@ -10,8 +10,6 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 - [Installation](#installation)
 - [Event Callbacks](#event-callbacks)
 - [Usage](#usage)
-- [Tutorial](#tutorial)
-
 
 ## Installation
 - `pip install daqx`
@@ -27,8 +25,25 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 **Samples acquired callback -** AI
 
 ## Usage
-### TODO
+```python
+from daqx.util import createDevice
 
-## Tutorial
-### TODO
+daqid = 0
+start_channel = 0                           # start scanning at channel 0
+end_channel = 1                             # end scanning at channel 1
+daq = createDevice('mcc',daqid)             # only 'mcc', Measurement Computing is supported currently
+daq.config_ai(start_channel,end_channel)    # set up analog input
+
+daq.ai.sampleRate = 1000                    # Hz/channel
+daq.ai.grounding = 'single-ended'           # Support 'single-ended','grounded','differential'
+daq.ai.trigType = 'instant'                 # support 'instant','digital-positive-edge'
+daq.ai.samplesPerTrig = 2000                # Samples/channel/trigger
+daq.ai.aqMode = 'foreground'                # acquisition mode - 'foreground','background'
+
+daq.ai.start()
+# after 2 seconds
+aitime, aidata = daq.ai.getdata()
+
+```
+Tutorial will be added in the future.
 
