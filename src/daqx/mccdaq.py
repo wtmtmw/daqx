@@ -339,11 +339,12 @@ class mcc_ai(aiBase):
             '''
             # curidx + self.ai._Nch is the actual (end point + 1) of the data transferred from DAQ to win buffer
             _, _, curidx = ul.get_status(self.ai.daq.daqid,FunctionType.AIFUNCTION)
-            # status, curcount, curidx = ul.get_status(self.ai.daq.daqid,FunctionType.AIFUNCTION)
-            # print(f'status = {status}; curidx = {curidx}; startidx = {self.startidx}; endidx = {self.endidx}')
+            #status, curcount, curidx = ul.get_status(self.ai.daq.daqid,FunctionType.AIFUNCTION)
+            #print(f'status = {status}; curidx = {curidx}; startidx = {self.startidx}; endidx = {self.endidx}')
 
             if self.reset or (self.endidx == curidx + self.ai._Nch): # no new data in the buffer
                 #print(f'Waiting for data in _dataBroker. curidx = {curidx}; startidx = {self.startidx}; endidx = {self.endidx}')
+                # instant trigger will only enter here once after the acquisition is done if extractdata() is used!!
                 if self.reset:
                     self.startidx = 0
                     self.endidx = curidx + self.ai._Nch
@@ -440,7 +441,9 @@ class mcc_ai(aiBase):
             if self.ai.aqMode == 'background':
                 self.timer.stop()
             else: # foreground
-                self.extractdata()
+                # self.extractdata() is not designed for foreground acquisition
+                for ch in range(self.ai._Nch):
+                    self.ai.data[ch] = self.copydata(ch,self.ai.bufferSize)
                 
             ul.win_buf_free(self.ai.buffer) # release memory
             print('win buffer freed')
