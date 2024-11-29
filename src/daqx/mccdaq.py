@@ -482,8 +482,11 @@ class mcc_ai(aiBase):
                 ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
                 if self.aqMode == 'foreground':
                     self.aqMode = 'background'
-                    print(f'\033[33mForeground mode is not allowed for Inf triggers -> changed to Background mode\033[0m')        
+                    print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')        
             else:
+                if (self.aqMode == 'foreground') and (self.trigRepeat > 1):
+                    self.aqMode = 'background'
+                    print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')
                 ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
                 #self.scanoption |= (ScanOptions.RETRIGMODE)
             
