@@ -6,13 +6,13 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 
 ## Table of Contents
 - [Installation](#installation)
-- [Supported Callback Event](#supported-callback-event)
+- [Supported Event Callback](#supported-event-callback)
 - [Usage](#usage)
 
 ## Installation
 - `pip install daqx`
 
-## Supported Callback Event
+## Supported Event Callback
 **Start callback -** AI, AO
 
 **Stop callback -** AI, AO
