@@ -1,21 +1,18 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 # daqx
-:warning: This project is still under construction / development
-
 Python data acquisition toolbox - Wrapper that provides high-level layers for controlling data acquisition boards. It also handles low-level memory management, data transfer, and provides various types of event callbacks.
 
-Currently, it only supports boards from Measurement Computing. Support for National Instruments may be added in the future.
+Currently, it only supports boards from Measurement Computing. Support for National Instruments boards will be added in the future.
 
 ## Table of Contents
 - [Installation](#installation)
-- [Event Callbacks](#event-callbacks)
+- [Supported Callback Event](#supported-callback-event)
 - [Usage](#usage)
 
 ## Installation
 - `pip install daqx`
 
-
-## Event Callbacks
+## Supported Callback Event
 **Start callback -** AI, AO
 
 **Stop callback -** AI, AO
