@@ -142,11 +142,12 @@ class aiBase:
         '''
         raise NotImplementedError
         
-    def getdata(self):
+    def getdata(self,*arg,to_numpy=True):
         '''
         Get all or specified amount of data from the acquisition engine, starting from the earliest data point.
         Syntax: aitime, aidata = ai.getdata(1000) -> get 1000 acquired samples from each channel
                 aitime, aidata = ai.getdata() -> get every available samples in the acquisition engine
+            if to_numpy is True -> return np.ndarray else -> return python list
         '''
         raise NotImplementedError
     

@@ -565,7 +565,7 @@ class mcc_ai(aiBase):
         self.isrunning = False
         return data #TODO - verify data -> something could be wrong in a_in() itself
         
-    def getdata(self,*arg):
+    def getdata(self,*arg,to_numpy=True):
         Narg = len(arg)
         assert Narg <= 1, f'ai.getdata() accepts zero or one input argument. It is {Narg} now.'
         if self._broker.istransferring: # if dataBroker is transferring data
@@ -608,7 +608,10 @@ class mcc_ai(aiBase):
                 count = endidx - startidx
                 Nreq -= count
                 self._nextdataidx += count
-        
+        if to_numpy:
+            aitime = np.array(aitime)
+            data = np.array(data)
+
         self.istransferring = False
         return aitime, data
 
