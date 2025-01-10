@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: daqx
-Version: 0.0.2
+Version: 0.0.3
 Summary: Python data acquisition toolbox - MCC
 Project-URL: Homepage, https://github.com/wtmtmw/daqx
 Keywords: acquisition,mcc
@@ -15,21 +15,19 @@ Requires-Dist: numpy
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
 # daqx
-:warning: This project is still under construction / development
-
 Python data acquisition toolbox - Wrapper that provides high-level layers for controlling data acquisition boards. It also handles low-level memory management, data transfer, and provides various types of event callbacks.
 
-Currently, it only supports boards from Measurement Computing. Support for National Instruments may be added in the future.
+Currently, it only supports boards from Measurement Computing. Support for National Instruments boards will be added in the future.
 
 ## Table of Contents
 - [Installation](#installation)
-- [Event Callbacks](#event-callbacks)
+- [Supported Event Callback](#supported-event-callback)
 - [Usage](#usage)
 
 ## Installation
 - `pip install daqx`
 
-## Event Callbacks
+## Supported Event Callback
 **Start callback -** AI, AO
 
 **Stop callback -** AI, AO
