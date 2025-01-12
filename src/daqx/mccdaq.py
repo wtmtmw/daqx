@@ -59,7 +59,7 @@ class mccdaq(daqBase):
                 try:
                     fcnset[0](eventdata,*arg,**kwarg)
                 except:
-                    print('Example callback definition: foo(eventdata,*arg,**kwarg)')
+                    print('Example callback definition: foo(eventdata,*args,**kwargs) or foo(self,eventdata,*args,**kwargs) if it is a member function.')
                     traceback.print_exc()
             else:
                 print(f'{fcnset[0]} is not callable')
