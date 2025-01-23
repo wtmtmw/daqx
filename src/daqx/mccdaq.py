@@ -591,7 +591,7 @@ class mcc_ai(aiBase):
             data[ch].extend(self.data[ch][0:Nreq]) #copy data from the engine
             del self.data[ch][0:Nreq] #remove extracted data from the engine
 
-        # Generate aitime
+        # Generate aitime #TODO - bug: time generation is wrong when samplesAcquiredFcnCount is not the multiple of samplesPerTrig
         if self.trigType == 'instant': # don't need to consider gaps between triggers
             aitime = [(self._nextdataidx + n) / self.sampleRate for n in range(Nreq)]
             self._nextdataidx += Nreq
