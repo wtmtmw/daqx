@@ -4,7 +4,7 @@ import ctypes
 from mcculw import ul
 from mcculw.enums import ScanOptions, FunctionType, BoardInfo, InfoType, ULRange, TrigType, AnalogInputMode, Status
 from mcculw.device_info import DaqDeviceInfo
-
+from math import ceil
 import traceback # error handling
 import numpy as np
 import time
@@ -591,23 +591,25 @@ class mcc_ai(aiBase):
             data[ch].extend(self.data[ch][0:Nreq]) #copy data from the engine
             del self.data[ch][0:Nreq] #remove extracted data from the engine
 
-        # Generate aitime #TODO - bug: time generation is wrong when samplesAcquiredFcnCount is not the multiple of samplesPerTrig
+        # Generate aitime TODO - handle missed trigger events
         if self.trigType == 'instant': # don't need to consider gaps between triggers
             aitime = [(self._nextdataidx + n) / self.sampleRate for n in range(Nreq)]
             self._nextdataidx += Nreq
         else:
             starttrig = self._nextdataidx // self.samplesPerTrig # zero-based
-            endtrig = (self._nextdataidx + Nreq) // self.samplesPerTrig
-            for trigidx in range(starttrig,endtrig+1):
+            endtrig = ceil((self._nextdataidx + Nreq) / self.samplesPerTrig) # endtrig won't be reached
+            #print(f'starttrig:{starttrig} endtrig:{endtrig}')
+            for trigidx in range(starttrig,endtrig):
                 startidx = self._nextdataidx % self.samplesPerTrig
                 if (startidx + Nreq) <= self.samplesPerTrig: # N of requested points are within a trigger
                     endidx = startidx + Nreq # endidx wont'e be reached. The idx of the last point is endidx-1.
                 else:
-                    endidx = (self.samplesPerTrig - startidx) # point to the start of the next trigger
+                    endidx = self.samplesPerTrig # point to the start of the next trigger
                 aitime.extend([self._trigTime[trigidx] - self._trigTime[0] + (n / self.sampleRate) for n in range(startidx,endidx)])
                 count = endidx - startidx
                 Nreq -= count
                 self._nextdataidx += count
+                #print(f'trigidx:{trigidx} startidx:{startidx} endidx:{endidx} _nextdataidx:{self._nextdataidx}')
         if to_numpy:
             aitime = np.array(aitime)
             data = np.array(data)
