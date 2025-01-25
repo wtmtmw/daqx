@@ -600,7 +600,7 @@ class mcc_ai(aiBase):
             endtrig = (self._nextdataidx + Nreq) // self.samplesPerTrig
             for trigidx in range(starttrig,endtrig+1):
                 startidx = self._nextdataidx % self.samplesPerTrig
-                if (startidx + Nreq - 1) <= self.samplesPerTrig: # N of requested points <= samplesPerTrig
+                if (startidx + Nreq) <= self.samplesPerTrig: # N of requested points are within a trigger
                     endidx = startidx + Nreq # endidx wont'e be reached. The idx of the last point is endidx-1.
                 else:
                     endidx = (self.samplesPerTrig - startidx) # point to the start of the next trigger
