@@ -43,26 +43,32 @@ class mccdaq(daqBase):
             self.aicuridx = None # for arming AI trigger
 
         def _execute(self,fcnset,eventdata): # call the function
-            arg = ()
-            kwarg = {}
+            # arg = ()
+            # kwarg = {}
+            # try:
+            #     if fcnset[1]:
+            #         arg = fcnset[1]
+            # except:
+            #     pass
+            # try:
+            #     if fcnset[2]:
+            #         kwarg = fcnset[2]
+            # except:
+            #     pass
+            # if callable(fcnset[0]):
+            #     try:
+            #         fcnset[0](eventdata,*arg,**kwarg)
+            #     except:
+            #         print('Example callback definition: foo(eventdata,*args,**kwargs) or foo(self,eventdata,*args,**kwargs) if it is a member function.')
+            #         traceback.print_exc()
+            # else:
+            #     print(f'{fcnset[0]} is not callable')
             try:
-                if fcnset[1]:
-                    arg = fcnset[1]
+                fcnset(eventdata)
             except:
-                pass
-            try:
-                if fcnset[2]:
-                    kwarg = fcnset[2]
-            except:
-                pass
-            if callable(fcnset[0]):
-                try:
-                    fcnset[0](eventdata,*arg,**kwarg)
-                except:
-                    print('Example callback definition: foo(eventdata,*args,**kwargs) or foo(self,eventdata,*args,**kwargs) if it is a member function.')
-                    traceback.print_exc()
-            else:
-                print(f'{fcnset[0]} is not callable')
+                print(f'Error calling {eventdata.event} callback function')
+                traceback.print_exc()
+
 
         def _update(self): # updating status
             if self.daq.ai:
