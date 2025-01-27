@@ -100,7 +100,7 @@ class aiBase:
         self.isrunning = False
         self.aqMode = 'foreground' # acquisition mode
         self.data = [] # size of channel x sample
-        self.aitime = []
+        #self.aitime = []
         self._nextdataidx = 0 # for aitime generation. It's the index (i.e. number of total transferred samples) to the 1st data point of the NEXT getdata() event. It will be updated in getdata()
         self._trigTime = [] # for aitime generation
         assignkwarg(self,**kwarg)
@@ -117,8 +117,10 @@ class aiBase:
         assert self.aqMode in aiBase.set_aqMode, f'\'ai.aqMode\' must be one of {aiBase.set_aqMode}. It is {self.aqMode} now.'
         assert self.sampleRate > 0, f'\'ai.sampleRate\' must be > 0. It is {self.sampleRate} now.'
         assert self.trigType in aiBase.set_trigType, f'\'ai.trigType\' must be one of {aiBase.set_trigType}. It is {self.trigType} now.'
-        assert self.trigRepeat >= 1 and type(self.trigRepeat) == int, f'\'ai.trigRepeat\' must be an integer that is >= 1. It is {type(self.trigRepeat)} {self.trigRepeat} now.'
-        assert self.samplesPerTrig >= 1 and type(self.samplesPerTrig) == int, f'\'ai.samplesPerTrig\' must be an integer that is >= 1. It is {type(self.samplesPerTrig)} {self.samplesPerTrig} now.'
+        assert ((self.trigRepeat >= 1 and type(self.trigRepeat) == int)
+                or (self.trigRepeat in ['inf','Inf'])), f'\'ai.trigRepeat\' must be an integer that is >= 1 or \'inf\'. It is {type(self.trigRepeat)} {self.trigRepeat} now.'
+        assert ((self.samplesPerTrig >= 1 and type(self.samplesPerTrig) == int)
+                 or (self.samplesPerTrig in ['inf','Inf'])), f'\'ai.samplesPerTrig\' must be an integer that is >= 1 or \'inf\'. It is {type(self.samplesPerTrig)} {self.samplesPerTrig} now.'
         assert self.samplesAcquiredFcnCount >= 0 and type(self.samplesAcquiredFcnCount) == int, f'\'ai.samplesAcquiredFcnCount\' must be an integer that is >= 0. It is {type(self.samplesAcquiredFcnCount)} {self.samplesAcquiredFcnCount} now.'
 
     def start(self):
