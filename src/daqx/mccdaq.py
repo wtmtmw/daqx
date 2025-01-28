@@ -129,7 +129,7 @@ class mccdaq(daqBase):
                 self.trigArmed = True # arm trig if curidx keeps the same for trigWatchCount points
                 self.timeLastTrig = None # for AI trigFcn. It's time.time() of the last trigger event
                 #self.timeThreshold = 512/self.daq.ai.sampleRate # Typical half-FIFO sizes are 256, 512 and 1,024 <- this is not reliable 
-                if (self.daq.ai.trigType == 'instant'):
+                if (self.daq.ai.trigRepeat == 1):
                     self.timeThreshold = None
                 else:
                     self.timeThreshold = self.daq.ai.samplesPerTrig / self.daq.ai.sampleRate
@@ -298,7 +298,7 @@ class mcc_ai(aiBase):
             self.ai = ai
             self.timer = None # threading.Timer object
             self.timerPeriod = None # in sec
-            self.autodt = True # adjut timer period automatically
+            self.autodt = False # adjut timer period automatically
             self.istransferring = False # is extractdata() transferring data
             self.startidx = 0 # start index of the win buffer to be transferred
             self.endidx = None # end index (i.e. end point+1) of the win buffer to be transferred
@@ -413,7 +413,7 @@ class mcc_ai(aiBase):
 
             #TW20250127 - Change the logic of how the bufferSize is determined
             if self.ai.iscontinuous:
-                if self.trigRepeat == 1:
+                if self.ai.trigRepeat == 1:
                     self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
                 else: # Inf trigger
                     # Ensure the buffer is large enough to hold > 1 sec of fast trigger data
@@ -637,7 +637,7 @@ class mcc_ai(aiBase):
             del self.data[ch][0:Nreq] #remove extracted data from the engine
 
         # Generate aitime TODO - handle missed trigger events
-        if self.trigType == 'instant': # don't need to consider gaps between triggers
+        if self.trigRepeat == 1: # don't need to consider gaps between triggers
             aitime = [(self._nextdataidx + n) / self.sampleRate for n in range(Nreq)]
             self._nextdataidx += Nreq
         else:
