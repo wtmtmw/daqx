@@ -403,26 +403,38 @@ class mcc_ai(aiBase):
             '''
             
             # Determine buffer size and allocate memory
+            # if self.ai.iscontinuous:
+            #     if self.ai.trigType == 'instant':
+            #         self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
+            #     else: # Inf trigger
+            #         self.ai.bufferSize = self.ai.samplesPerTrig * self.ai._Nch # AI overwrites the buffer everytime; each trigger acquires bufferSize of samples
+            # else:
+            #     self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
+
+            #TW20250127 - Change the logic of how the bufferSize is determined
             if self.ai.iscontinuous:
-                if self.ai.trigType == 'instant':
+                if self.trigRepeat == 1:
                     self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
                 else: # Inf trigger
-                    self.ai.bufferSize = self.ai.samplesPerTrig * self.ai._Nch # AI overwrites the buffer everytime; each trigger acquires bufferSize of samples
+                    # Ensure the buffer is large enough to hold > 1 sec of fast trigger data
+                    self.ai.bufferSize = ceil(self.ai.sampleRate//self.ai.samplesPerTrig) * self.ai.samplesPerTrig * self.ai._Nch
             else:
                 self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
-               
+            #TODO - paused 1/27/2025   
             # Allocate memory
             #print(f'bifferSize = {self.ai.bufferSize}')
             self.ai.buffer = ul.win_buf_alloc(self.ai.bufferSize)
             self.array = ctypes.cast(self.ai.buffer, ctypes.POINTER(ctypes.c_ushort)) # for self.extractdata
             
             # Set up timer
-            if self.ai.bufferSize/self.ai._Nch/self.ai.sampleRate < 1: # if each trigger period is <1 sec
-                self.timerPeriod = self.ai.samplesPerTrig/self.ai.sampleRate/5 #check 5 times per trigger
-                if self.timerPeriod < 0.1:
-                    self.timerPeriod = 0.1 #minimal timer period
-            else:
-                self.timerPeriod = 0.2
+            # if self.ai.bufferSize/self.ai._Nch/self.ai.sampleRate < 1: # if each trigger period is <1 sec
+            #     self.timerPeriod = self.ai.samplesPerTrig/self.ai.sampleRate/5 #check 5 times per trigger
+            #     if self.timerPeriod < 0.1:
+            #         self.timerPeriod = 0.1 #minimal timer period
+            # else:
+            #     self.timerPeriod = 0.2
+
+            self.timerPeriod = 0.2
             
             try:
                 if self.ai.aqMode == 'background': # cannot extract data during foreground acquisition anyway
