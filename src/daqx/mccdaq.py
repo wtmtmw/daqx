@@ -420,7 +420,7 @@ class mcc_ai(aiBase):
                     self.ai.bufferSize = ceil(self.ai.sampleRate//self.ai.samplesPerTrig) * self.ai.samplesPerTrig * self.ai._Nch
             else:
                 self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
-            #TODO - paused 1/27/2025   
+  
             # Allocate memory
             #print(f'bifferSize = {self.ai.bufferSize}')
             self.ai.buffer = ul.win_buf_alloc(self.ai.bufferSize)
@@ -547,8 +547,6 @@ class mcc_ai(aiBase):
             
         if self.aqMode == 'background':
             self.scanoption |= ScanOptions.BACKGROUND
-
-        #TODO - paused 1/26/2025 - test if the logic is correct
         
         # Prep empty self.data list etc. for data storage in self._broker.extractdata()
         self.data = [[] for _ in range(self._Nch)] # use list instead of numpy array because appending data to numpy array is inefficient
