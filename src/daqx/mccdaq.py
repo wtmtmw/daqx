@@ -4,7 +4,7 @@ import ctypes
 from mcculw import ul
 from mcculw.enums import ScanOptions, FunctionType, BoardInfo, InfoType, ULRange, TrigType, AnalogInputMode, Status
 from mcculw.device_info import DaqDeviceInfo
-
+from math import ceil
 import traceback # error handling
 import numpy as np
 import time
@@ -43,26 +43,32 @@ class mccdaq(daqBase):
             self.aicuridx = None # for arming AI trigger
 
         def _execute(self,fcnset,eventdata): # call the function
-            arg = ()
-            kwarg = {}
+            # arg = ()
+            # kwarg = {}
+            # try:
+            #     if fcnset[1]:
+            #         arg = fcnset[1]
+            # except:
+            #     pass
+            # try:
+            #     if fcnset[2]:
+            #         kwarg = fcnset[2]
+            # except:
+            #     pass
+            # if callable(fcnset[0]):
+            #     try:
+            #         fcnset[0](eventdata,*arg,**kwarg)
+            #     except:
+            #         print('Example callback definition: foo(eventdata,*args,**kwargs) or foo(self,eventdata,*args,**kwargs) if it is a member function.')
+            #         traceback.print_exc()
+            # else:
+            #     print(f'{fcnset[0]} is not callable')
             try:
-                if fcnset[1]:
-                    arg = fcnset[1]
+                fcnset(eventdata)
             except:
-                pass
-            try:
-                if fcnset[2]:
-                    kwarg = fcnset[2]
-            except:
-                pass
-            if callable(fcnset[0]):
-                try:
-                    fcnset[0](eventdata,*arg,**kwarg)
-                except:
-                    print('Example callback definition: foo(eventdata,*arg,**kwarg)')
-                    traceback.print_exc()
-            else:
-                print(f'{fcnset[0]} is not callable')
+                print(f'Error calling {eventdata.event} callback function')
+                traceback.print_exc()
+
 
         def _update(self): # updating status
             if self.daq.ai:
@@ -123,7 +129,7 @@ class mccdaq(daqBase):
                 self.trigArmed = True # arm trig if curidx keeps the same for trigWatchCount points
                 self.timeLastTrig = None # for AI trigFcn. It's time.time() of the last trigger event
                 #self.timeThreshold = 512/self.daq.ai.sampleRate # Typical half-FIFO sizes are 256, 512 and 1,024 <- this is not reliable 
-                if (self.daq.ai.trigType == 'instant'):
+                if (self.daq.ai.trigRepeat == 1):
                     self.timeThreshold = None
                 else:
                     self.timeThreshold = self.daq.ai.samplesPerTrig / self.daq.ai.sampleRate
@@ -292,7 +298,7 @@ class mcc_ai(aiBase):
             self.ai = ai
             self.timer = None # threading.Timer object
             self.timerPeriod = None # in sec
-            self.autodt = True # adjut timer period automatically
+            self.autodt = False # adjut timer period automatically
             self.istransferring = False # is extractdata() transferring data
             self.startidx = 0 # start index of the win buffer to be transferred
             self.endidx = None # end index (i.e. end point+1) of the win buffer to be transferred
@@ -397,26 +403,38 @@ class mcc_ai(aiBase):
             '''
             
             # Determine buffer size and allocate memory
+            # if self.ai.iscontinuous:
+            #     if self.ai.trigType == 'instant':
+            #         self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
+            #     else: # Inf trigger
+            #         self.ai.bufferSize = self.ai.samplesPerTrig * self.ai._Nch # AI overwrites the buffer everytime; each trigger acquires bufferSize of samples
+            # else:
+            #     self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
+
+            #TW20250127 - Change the logic of how the bufferSize is determined
             if self.ai.iscontinuous:
-                if self.ai.trigType == 'instant':
+                if self.ai.trigRepeat == 1:
                     self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
                 else: # Inf trigger
-                    self.ai.bufferSize = self.ai.samplesPerTrig * self.ai._Nch # AI overwrites the buffer everytime; each trigger acquires bufferSize of samples
+                    # Ensure the buffer is large enough to hold > 1 sec of fast trigger data
+                    self.ai.bufferSize = ceil(self.ai.sampleRate//self.ai.samplesPerTrig) * self.ai.samplesPerTrig * self.ai._Nch
             else:
                 self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
-               
+  
             # Allocate memory
             #print(f'bifferSize = {self.ai.bufferSize}')
             self.ai.buffer = ul.win_buf_alloc(self.ai.bufferSize)
             self.array = ctypes.cast(self.ai.buffer, ctypes.POINTER(ctypes.c_ushort)) # for self.extractdata
             
             # Set up timer
-            if self.ai.bufferSize/self.ai._Nch/self.ai.sampleRate < 1: # if each trigger period is <1 sec
-                self.timerPeriod = self.ai.samplesPerTrig/self.ai.sampleRate/5 #check 5 times per trigger
-                if self.timerPeriod < 0.1:
-                    self.timerPeriod = 0.1 #minimal timer period
-            else:
-                self.timerPeriod = 0.2
+            # if self.ai.bufferSize/self.ai._Nch/self.ai.sampleRate < 1: # if each trigger period is <1 sec
+            #     self.timerPeriod = self.ai.samplesPerTrig/self.ai.sampleRate/5 #check 5 times per trigger
+            #     if self.timerPeriod < 0.1:
+            #         self.timerPeriod = 0.1 #minimal timer period
+            # else:
+            #     self.timerPeriod = 0.2
+
+            self.timerPeriod = 0.2
             
             try:
                 if self.ai.aqMode == 'background': # cannot extract data during foreground acquisition anyway
@@ -471,43 +489,68 @@ class mcc_ai(aiBase):
             self.trigType = 'instant'
             print('\033[33mDemo board only supports instant trigger -> corrected\033[0m')
             
+        # if self.trigType != 'instant':
+        #     self.scanoption |= (ScanOptions.EXTTRIGGER)
+        #     if (self.trigRepeat > 1) or (self.iscontinuous):
+        #         self.scanoption |= ScanOptions.RETRIGMODE
+
+        #     ul.set_trigger(self.daq.daqid, self.set_trigType[self.trigType], 0, 0) # set_trigger(board_num, trig_type, low_threshold, high_threshold)
+            
+        #     if self.iscontinuous: # Inf trigger counts
+        #         ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
+        #         if self.aqMode == 'foreground':
+        #             self.aqMode = 'background'
+        #             print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')        
+        #     else:
+        #         if (self.aqMode == 'foreground') and (self.trigRepeat > 1):
+        #             self.aqMode = 'background'
+        #             print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')
+        #         ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
+
+        # if self.iscontinuous:
+        #     self.scanoption |= ScanOptions.CONTINUOUS
+        #     if self.trigRepeat > 1:
+        #         print(f'\033[33mtrigRepeat is ignored in Continuous mode\033[0m')
+        #     if self.aqMode == 'foreground':
+        #         self.aqMode = 'background'
+        #         print(f'\033[33mForeground mode is not allowed for continuous acquisition -> changed to Background mode\033[0m')
+
+        # TW20250126 - Change the logic of how the scanoption is determined
         if self.trigType != 'instant':
             self.scanoption |= (ScanOptions.EXTTRIGGER)
-            if (self.trigRepeat > 1) or (self.iscontinuous):
-                self.scanoption |= ScanOptions.RETRIGMODE
-
             ul.set_trigger(self.daq.daqid, self.set_trigType[self.trigType], 0, 0) # set_trigger(board_num, trig_type, low_threshold, high_threshold)
-            
-            if self.iscontinuous: # Inf trigger counts
-                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
-                if self.aqMode == 'foreground':
-                    self.aqMode = 'background'
-                    print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')        
-            else:
-                if (self.aqMode == 'foreground') and (self.trigRepeat > 1):
-                    self.aqMode = 'background'
-                    print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')
-                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
-                #self.scanoption |= (ScanOptions.RETRIGMODE)
-            
-        if self.iscontinuous:
+
+        if self.iscontinuous: # self.trigRepeat = 1 or 'inf'
             self.scanoption |= ScanOptions.CONTINUOUS
-            if self.trigRepeat > 1:
-                print(f'\033[33mtrigRepeat is ignored in Continuous mode\033[0m')
+            if self.trigRepeat == 1: # one trigger, continuous acquisition
+                self.samplesPerTrig = 'inf'
+            elif self.trigRepeat in ['inf','Inf']: # inf triggers
+                self.scanoption |= ScanOptions.RETRIGMODE
+                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
+                
+            else: # raise error message
+                raise ValueError(f'ai.trigRepeat can only be 1 or "inf" when ai.iscontinuous == True. It is {self.trigRepeat} now.')
+
             if self.aqMode == 'foreground':
                 self.aqMode = 'background'
-                print(f'\033[33mForeground mode is not allowed for continuous acquisition -> changed to Background mode\033[0m')
+                print(f'\033[33mForeground mode is not allowed when ai.iscontinuous == True -> changed to Background mode\033[0m')
+
+        else: #self.trigRepeat must be >=1 integer
+            if self.trigRepeat > 1:
+                self.scanoption |= ScanOptions.RETRIGMODE
+                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
+
+        if (self.trigRepeat != 1) and (self.samplesPerTrig in ['inf','Inf']):
+            # self.samplesPerTrig = 1000
+            # print(f'\033[33mai.samplesPerTrig cannot be \'inf\' when ai.trigRepeat > 1 -> changed to {self.samplesPerTrig}\033[0m')
+            raise ValueError(f'ai.samplesPerTrig cannot be "inf" when ai.trigRepeat > 1.')
             
         if self.aqMode == 'background':
             self.scanoption |= ScanOptions.BACKGROUND
-            
-        # if (not self.iscontinuous) or (self.aqMode == 'foreground'):
-        #     # call self.stop() for non-continuous of foreground scan
-        #     ul.enable_event(self.daq.daqid, EventType.ON_END_OF_AI_SCAN, 0, self.endOfScanFcn, ctypes.py_object(self))
         
         # Prep empty self.data list etc. for data storage in self._broker.extractdata()
         self.data = [[] for _ in range(self._Nch)] # use list instead of numpy array because appending data to numpy array is inefficient
-        self.aitime = []
+        #self.aitime = []
         self.samplesAcquired = 0 # number of samples/channel transferred to ai.data
         self._nextdataidx = 0 # for aitime generation. It's the index (i.e. number of total transferred samples) to the 1st data point of the NEXT getdata() event. It will be updated in getdata()
         self._trigTime = [] # for aitime generation
@@ -565,7 +608,7 @@ class mcc_ai(aiBase):
         self.isrunning = False
         return data #TODO - verify data -> something could be wrong in a_in() itself
         
-    def getdata(self,*arg):
+    def getdata(self,*arg,to_numpy=True):
         Narg = len(arg)
         assert Narg <= 1, f'ai.getdata() accepts zero or one input argument. It is {Narg} now.'
         if self._broker.istransferring: # if dataBroker is transferring data
@@ -591,24 +634,29 @@ class mcc_ai(aiBase):
             data[ch].extend(self.data[ch][0:Nreq]) #copy data from the engine
             del self.data[ch][0:Nreq] #remove extracted data from the engine
 
-        # Generate aitime
-        if self.trigType == 'instant': # don't need to consider gaps between triggers
+        # Generate aitime TODO - handle missed trigger events
+        if self.trigRepeat == 1: # don't need to consider gaps between triggers
             aitime = [(self._nextdataidx + n) / self.sampleRate for n in range(Nreq)]
             self._nextdataidx += Nreq
         else:
             starttrig = self._nextdataidx // self.samplesPerTrig # zero-based
-            endtrig = (self._nextdataidx + Nreq) // self.samplesPerTrig
-            for trigidx in range(starttrig,endtrig+1):
+            endtrig = ceil((self._nextdataidx + Nreq) / self.samplesPerTrig) # endtrig won't be reached
+            #print(f'starttrig:{starttrig} endtrig:{endtrig}')
+            for trigidx in range(starttrig,endtrig):
                 startidx = self._nextdataidx % self.samplesPerTrig
-                if (startidx + Nreq - 1) <= self.samplesPerTrig: # N of requested points <= samplesPerTrig
+                if (startidx + Nreq) <= self.samplesPerTrig: # N of requested points are within a trigger
                     endidx = startidx + Nreq # endidx wont'e be reached. The idx of the last point is endidx-1.
                 else:
-                    endidx = (self.samplesPerTrig - startidx) # point to the start of the next trigger
+                    endidx = self.samplesPerTrig # point to the start of the next trigger
                 aitime.extend([self._trigTime[trigidx] - self._trigTime[0] + (n / self.sampleRate) for n in range(startidx,endidx)])
                 count = endidx - startidx
                 Nreq -= count
                 self._nextdataidx += count
-        
+                #print(f'trigidx:{trigidx} startidx:{startidx} endidx:{endidx} _nextdataidx:{self._nextdataidx}')
+        if to_numpy:
+            aitime = np.array(aitime)
+            data = np.array(data)
+
         self.istransferring = False
         return aitime, data
 
