@@ -10,7 +10,9 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 - [Usage](#usage)
 
 ## Installation
-- `pip install daqx`
+```
+pip install daqx
+```
 
 ## Supported Event Callback
 **Start callback -** AI, AO
