@@ -14,6 +14,18 @@ class daqBase:
         self.ai = None
         self.ao = None
 
+    def __del__(self):
+        if not self.ai:
+            del(self.ai)
+        if not self.ao:
+            del(self.ao)
+    
+    def __enter__(self):
+        raise NotImplementedError
+    
+    def __exit__(self,exc_type, exc_value, dbstack):
+        raise NotImplementedError
+
     def config_ai(self, lowCh=0, highCh=1, **kwarg):
         raise NotImplementedError
 
