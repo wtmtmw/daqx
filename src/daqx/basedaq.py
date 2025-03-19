@@ -15,16 +15,26 @@ class daqBase:
         self.ao = None
 
     def __del__(self):
-        if not self.ai:
-            del(self.ai)
-        if not self.ao:
-            del(self.ao)
+        self.__exit__()
     
     def __enter__(self):
-        raise NotImplementedError
+        return self
     
-    def __exit__(self,exc_type, exc_value, dbstack):
-        raise NotImplementedError
+    def __exit__(self,*exc_details):
+        '''
+        When an error occurs: e.g.
+        exc_details[0] = <class 'NameError'>
+        exc_details[1] = name 'xx' is not defined
+        exc_details[2] = <traceback object at 0x0000021EDAA7DBC0>
+        '''
+        try:
+            del(self.ai)
+        except:
+            pass
+        try:
+            del(self.ao)
+        except:
+            pass
 
     def config_ai(self, lowCh=0, highCh=1, **kwarg):
         raise NotImplementedError
