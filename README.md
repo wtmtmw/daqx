@@ -8,6 +8,7 @@ Currently, it only supports boards from Measurement Computing. Support for Natio
 - [Installation](#installation)
 - [Supported Event Callback](#supported-event-callback)
 - [Usage](#usage)
+- [Example Types of Acquisition](#example-types-of-acquisition)
 
 ## Installation
 ```
@@ -15,13 +16,10 @@ pip install daqx
 ```
 
 ## Supported Event Callback
-**Start callback -** AI, AO
-
-**Stop callback -** AI, AO
-
-**Trigger callback -** AI
-
-**Samples acquired callback -** AI
+Start callback - AI, AO<br>
+Stop callback - AI, AO<br>
+Trigger callback -AI<br>
+Samples acquired callback - AI
 
 ## Usage
 ```python
@@ -45,4 +43,22 @@ aitime, aidata = daq.ai.getdata()
 
 ```
 Tutorial will be added in the future.
+## Example Types of Acquisition
+One trigger, continuous acquisition
+```python
+daq.ai.iscontinuous = True
+daq.ai.trigRepeat = 1 # daq.ai.trigType can be 'instant' as well
+```
+
+Infinite triggers
+```python
+daq.ai.iscontinuous = True
+daq.ai.trigRepeat = 'inf'
+```
+
+Finite triggers
+```python
+daq.ai.iscontinuous = False
+daq.ai.trigRepeat = 3 # 3 triggers in total. daq.ai.trigType cannot be 'instant'
+```
 
