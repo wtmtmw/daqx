@@ -10,7 +10,8 @@ def createDevice(dev,daqid):
         from daqx.mccdaq import mccdaq
         return mccdaq(daqid)
     elif dev == 'ni':
-        raise NotImplementedError
+        from daqx.nidaq import nidaq
+        return nidaq(daqid)
 
 def assignkwarg(obj,**kwarg):
     for key, value in kwarg.items():
