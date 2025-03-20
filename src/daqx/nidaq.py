@@ -1,8 +1,8 @@
 # %%
 from .basedaq import * # all .util components were imported in .basedaq already
 import ctypes
-# from mcculw import ul
-# from mcculw.enums import ScanOptions, FunctionType, BoardInfo, InfoType, ULRange, TrigType, AnalogInputMode, Status
+from nidaqmx.task import Task
+from nidaqmx.constants import TerminalConfiguration,TriggerType,Edge
 # from mcculw.device_info import DaqDeviceInfo
 from math import ceil
 import traceback # error handling
@@ -14,14 +14,13 @@ import time
 class nidaq(daqBase):
     def __init__(self,daqid):
         super().__init__(daqid)
-        #TODO - paused - 3/19/2025
-        # self.daqinfo = DaqDeviceInfo(self.daqid)
+        self.daqinfo.supported_ranges = [[-10,10],[-5,5]] # hard-code it for now TODO - improve...
         # self.eventlistener = self._listener(self)
 
         
     def config_ai(self, lowCh=0, highCh=1, **kwarg):
-        self.ai = mcc_ai(self, lowCh, highCh,
-                         info = self.daqinfo.get_ai_info(), **kwarg)
+        self.ai = nidaq_ai(self, lowCh, highCh,
+                         info = self.daqinfo, **kwarg)
 
     def config_ao(self, lowCh=0, highCh=1, **kwarg):
         self.ao = mcc_ao(self, lowCh, highCh, 
@@ -243,50 +242,37 @@ class mcc_ao(aoBase):
 
 # %%
 # mcc AI class definition ------------------------------------------------------------------------
-class mcc_ai(aiBase):
-    set_grounding = {'single-ended': AnalogInputMode.SINGLE_ENDED,
-                     'grounded': AnalogInputMode.GROUNDED,
-                     'differential': AnalogInputMode.DIFFERENTIAL} #cannot be defined in the inner class...
+class nidaq_ai(aiBase):
+    set_grounding = {'single-ended': TerminalConfiguration.NRSE,
+                     'grounded': TerminalConfiguration.RSE,
+                     'differential': TerminalConfiguration.DIFF} #cannot be defined in the inner class...
     set_trigType = {'instant': None,
-                    'digital-positive-edge': TrigType.TRIG_POS_EDGE}
-    set_aqMode = {'foreground': ScanOptions.FOREGROUND,
-                  'background':ScanOptions.BACKGROUND}
+                    'digital-positive-edge': (TriggerType.DIGITAL_EDGE,Edge.RISING,),
+                    'digital-negative-edge': (TriggerType.DIGITAL_EDGE,Edge.FALLING)}
+    set_aqMode = {'foreground': None,
+                  'background': None}
     
     def __init__(self, daq, lowCh, highCh, **kwarg):
         # Copy docstring from the parent class for the methods
-        for method in getMethods(mcc_ai):
-            exec(f'mcc_ai.{method}.__doc__ = aiBase.{method}.__doc__')
+        for method in getMethods(nidaq_ai):
+            exec(f'nidaq_ai.{method}.__doc__ = aiBase.{method}.__doc__')
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
+        self.task = None
         self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Output range +/- 10V
-        self.scanoption = ScanOptions.FOREGROUND # 0x0000 it means the default setting for everything
         self.istransferring = False # is getdata() transferring data
         self.bufferSize = None # for all channels; calculated at _dataBroker.start()
         self.buffer = None # circular buffer
         self._broker = None # manage memory and streaming data
         self._Nch = self.channel[1] - self.channel[0] + 1 # total number of channels
 
-        # for dev only. This allows me to program without the physical board.
-        if self.range == ULRange.NOTUSED:
-            self.demo = True # cannot set grounding and trigger type
-        else:
-            self.demo = False
+        # for dev only.
+        self.demo = False #TODO - remove after test
         
     def _assertVariable(self):
         super()._assertVariable()
         # Add additional variables below if needed
-        
-    # # Define the Python event handler for end of scan
-    # @ul.ULEventCallback
-    # def endOfScanFcn(board_num, event_type, event_data, cvar):
-    #     '''
-    #     * Call self.stop() after the scan finishes under non-continuous or foreground modes
-    #     * It won't be called after issuing stop_background()
-    #     '''
-    #     # self = ctypes.cast(cvar, ctypes.py_object).value # still doesn't work...
-    #     # self.stop(self)
-    #     print('Foreground acquisition is done')
         
     class _dataBroker():
         '''
@@ -402,17 +388,6 @@ class mcc_ai(aiBase):
             '''
             start monitoring and transferring data
             '''
-            
-            # Determine buffer size and allocate memory
-            # if self.ai.iscontinuous:
-            #     if self.ai.trigType == 'instant':
-            #         self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
-            #     else: # Inf trigger
-            #         self.ai.bufferSize = self.ai.samplesPerTrig * self.ai._Nch # AI overwrites the buffer everytime; each trigger acquires bufferSize of samples
-            # else:
-            #     self.ai.bufferSize = self.ai.samplesPerTrig * self.ai.trigRepeat * self.ai._Nch # must be able to contain all data
-
-            #TW20250127 - Change the logic of how the bufferSize is determined
             if self.ai.iscontinuous:
                 if self.ai.trigRepeat == 1:
                     self.ai.bufferSize = int(self.ai.sampleRate * self.ai._Nch) # 1 sec buffer capacity
@@ -472,51 +447,21 @@ class mcc_ai(aiBase):
             print('AI is running already')
             return
         self._assertVariable()
-        
-        # Set grounding type
-        if self.demo:
-            print('\033[33mDemo board does not support grounding type setting -> skip\033[0m')
-        else:
-            ul.a_input_mode(self.daq.daqid, mcc_ai.set_grounding[self.grounding])
-        
-        # Reset everything to default i.e. 0x0000
-        self.scanoption = ScanOptions.FOREGROUND # 0x0000 it means the default setting for everything
-
-        # Set acquisition mode
-        self.scanoption |= mcc_ai.set_aqMode[self.aqMode]
+        self.task = Task()
+        # Add channel, set grounding type and range
+        self.task.ai_channels.add_ai_voltage_chan(f'{self.daq.daqid}/ai{self.channel[0]}:{self.channel[1]}',
+                                                  terminal_config=nidaq_ai.set_grounding[self.grounding],
+                                                  min_val=self.range[0],
+                                                  max_val=self.range[1],
+                                                  )
+        #TODO - forground/background acqusition
         
         # Set / configure trigger
         if self.demo and (self.trigType != 'instant'):
             self.trigType = 'instant'
             print('\033[33mDemo board only supports instant trigger -> corrected\033[0m')
-            
-        # if self.trigType != 'instant':
-        #     self.scanoption |= (ScanOptions.EXTTRIGGER)
-        #     if (self.trigRepeat > 1) or (self.iscontinuous):
-        #         self.scanoption |= ScanOptions.RETRIGMODE
 
-        #     ul.set_trigger(self.daq.daqid, self.set_trigType[self.trigType], 0, 0) # set_trigger(board_num, trig_type, low_threshold, high_threshold)
-            
-        #     if self.iscontinuous: # Inf trigger counts
-        #         ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
-        #         if self.aqMode == 'foreground':
-        #             self.aqMode = 'background'
-        #             print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')        
-        #     else:
-        #         if (self.aqMode == 'foreground') and (self.trigRepeat > 1):
-        #             self.aqMode = 'background'
-        #             print(f'\033[33mForeground mode is not allowed for multiple triggers -> changed to Background mode\033[0m')
-        #         ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
-
-        # if self.iscontinuous:
-        #     self.scanoption |= ScanOptions.CONTINUOUS
-        #     if self.trigRepeat > 1:
-        #         print(f'\033[33mtrigRepeat is ignored in Continuous mode\033[0m')
-        #     if self.aqMode == 'foreground':
-        #         self.aqMode = 'background'
-        #         print(f'\033[33mForeground mode is not allowed for continuous acquisition -> changed to Background mode\033[0m')
-
-        # TW20250126 - Change the logic of how the scanoption is determined
+        #TODO - paused - 3/20/2025
         if self.trigType != 'instant':
             self.scanoption |= (ScanOptions.EXTTRIGGER)
             ul.set_trigger(self.daq.daqid, self.set_trigType[self.trigType], 0, 0) # set_trigger(board_num, trig_type, low_threshold, high_threshold)
