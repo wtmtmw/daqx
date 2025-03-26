@@ -2,7 +2,9 @@
 from .basedaq import * # all .util components were imported in .basedaq already
 import ctypes
 from nidaqmx.task import Task
-from nidaqmx.constants import TerminalConfiguration,TriggerType,Edge
+from nidaqmx.constants import TerminalConfiguration, Edge, AcquisitionType
+from nidaqmx.stream_writers import AnalogMultiChannelWriter
+from nidaqmx.stream_readers import AnalogMultiChannelReader
 # from mcculw.device_info import DaqDeviceInfo
 from math import ceil
 import traceback # error handling
@@ -247,8 +249,8 @@ class nidaq_ai(aiBase):
                      'grounded': TerminalConfiguration.RSE,
                      'differential': TerminalConfiguration.DIFF} #cannot be defined in the inner class...
     set_trigType = {'instant': None,
-                    'digital-positive-edge': (TriggerType.DIGITAL_EDGE,Edge.RISING,),
-                    'digital-negative-edge': (TriggerType.DIGITAL_EDGE,Edge.FALLING)}
+                    'digital-positive-edge': Edge.RISING,
+                    'digital-negative-edge': Edge.FALLING}
     set_aqMode = {'foreground': None,
                   'background': None}
     
@@ -260,6 +262,7 @@ class nidaq_ai(aiBase):
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
         self.task = None
+        self.reader = None
         self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Output range +/- 10V
         self.istransferring = False # is getdata() transferring data
         self.bufferSize = None # for all channels; calculated at _dataBroker.start()
@@ -448,6 +451,7 @@ class nidaq_ai(aiBase):
             return
         self._assertVariable()
         self.task = Task()
+        self.reader = AnalogMultiChannelReader(self.task.in_stream)
         # Add channel, set grounding type and range
         self.task.ai_channels.add_ai_voltage_chan(f'{self.daq.daqid}/ai{self.channel[0]}:{self.channel[1]}',
                                                   terminal_config=nidaq_ai.set_grounding[self.grounding],
@@ -461,18 +465,18 @@ class nidaq_ai(aiBase):
             self.trigType = 'instant'
             print('\033[33mDemo board only supports instant trigger -> corrected\033[0m')
 
-        #TODO - paused - 3/20/2025
         if self.trigType != 'instant':
-            self.scanoption |= (ScanOptions.EXTTRIGGER)
-            ul.set_trigger(self.daq.daqid, self.set_trigType[self.trigType], 0, 0) # set_trigger(board_num, trig_type, low_threshold, high_threshold)
+            self.task.triggers.start_trigger.cfg_dig_edge_start_trig(f"/{self.daq.daqid}/PFI0",
+                                                                     trigger_edge = self.set_trigType[self.trigType]) # use PFI0 by default
 
         if self.iscontinuous: # self.trigRepeat = 1 or 'inf'
-            self.scanoption |= ScanOptions.CONTINUOUS
+            self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.CONTINUOUS)
             if self.trigRepeat == 1: # one trigger, continuous acquisition
                 self.samplesPerTrig = 'inf'
+                self.task.triggers.start_trigger.retriggerable = False
+                
             elif self.trigRepeat in ['inf','Inf']: # inf triggers
-                self.scanoption |= ScanOptions.RETRIGMODE
-                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, 0) #overwrite/refill the buffer with every trigger
+                self.task.triggers.start_trigger.retriggerable = True
                 
             else: # raise error message
                 raise ValueError(f'ai.trigRepeat can only be 1 or "inf" when ai.iscontinuous == True. It is {self.trigRepeat} now.')
@@ -482,6 +486,8 @@ class nidaq_ai(aiBase):
                 print(f'\033[33mForeground mode is not allowed when ai.iscontinuous == True -> changed to Background mode\033[0m')
 
         else: #self.trigRepeat must be >=1 integer
+            self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.FINITE)
+            #TODO - paused - 3/26/2025
             if self.trigRepeat > 1:
                 self.scanoption |= ScanOptions.RETRIGMODE
                 ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
