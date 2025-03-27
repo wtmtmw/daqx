@@ -258,7 +258,7 @@ class mcc_ai(aiBase):
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
-        self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Output range +/- 10V
+        self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Input range +/- 10V
         self.scanoption = ScanOptions.FOREGROUND # 0x0000 it means the default setting for everything
         self.istransferring = False # is getdata() transferring data
         self.bufferSize = None # for all channels; calculated at _dataBroker.start()
