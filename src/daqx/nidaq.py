@@ -171,15 +171,7 @@ class ni_ao(aoBase):
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
-        self.task = None
-        self.writer = None
         self.range = self.info.supported_ranges[0] # Output range +/- 10V
-        # only support continuous background output mode for now
-
-    def _assertVariable(self):
-        super()._assertVariable()
-        assert len(self.data) > 0, 'Nothing to output. Assign voltage data using \'ao.putdata(numpy.ndarray)\' first.'
-        
         # Configure the task and channels
         self.task= Task()
         self.writer = AnalogMultiChannelWriter(self.task.out_stream, auto_start=False)
@@ -187,6 +179,12 @@ class ni_ao(aoBase):
                                                   min_val=self.range[0],
                                                   max_val=self.range[1],
                                                   )
+        # only support continuous background output mode for now
+
+    def _assertVariable(self):
+        super()._assertVariable()
+        assert len(self.data) > 0, 'Nothing to output. Assign voltage data using \'ao.putdata(numpy.ndarray)\' first.'
+        
         #TODO - paused - 3/27/2025
 
     def start(self): # AO start
@@ -272,9 +270,16 @@ class ni_ai(aiBase):
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
-        self.task = None
-        self.reader = None
         self.range = self.info.supported_ranges[0] # Input range +/- 10V
+        # Configure the task and channels
+        self.task = Task()
+        self.reader = AnalogMultiChannelReader(self.task.in_stream)
+        self.task.ai_channels.add_ai_voltage_chan(f'{self.daq.daqid}/ai{self.channel[0]}:{self.channel[1]}',
+                                                  terminal_config=ni_ai.set_grounding[self.grounding],
+                                                  min_val=self.range[0],
+                                                  max_val=self.range[1],
+                                                  )
+        # Other variables
         self.istransferring = False # is getdata() transferring data
         self.bufferSize = None # for all channels; calculated at _dataBroker.start()
         self.buffer = None # circular buffer
@@ -462,14 +467,6 @@ class ni_ai(aiBase):
             return
         self._assertVariable()
         
-        # Configure the task and channels
-        self.task = Task()
-        self.reader = AnalogMultiChannelReader(self.task.in_stream)
-        self.task.ai_channels.add_ai_voltage_chan(f'{self.daq.daqid}/ai{self.channel[0]}:{self.channel[1]}',
-                                                  terminal_config=ni_ai.set_grounding[self.grounding],
-                                                  min_val=self.range[0],
-                                                  max_val=self.range[1],
-                                                  )
         #TODO - forground/background acqusition
         
         # Set / configure trigger
