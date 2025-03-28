@@ -17,15 +17,15 @@ class nidaq(daqBase):
     def __init__(self,daqid):
         super().__init__(daqid)
         self.daqinfo.supported_ranges = [[-10,10],[-5,5]] # hard-code it for now TODO - improve...
-        # self.eventlistener = self._listener(self)
+        # self.eventlistener = self._listener(self) #TODO
 
         
     def config_ai(self, lowCh=0, highCh=1, **kwarg):
-        self.ai = nidaq_ai(self, lowCh, highCh,
+        self.ai = ni_ai(self, lowCh, highCh,
                          info = self.daqinfo, **kwarg)
 
     def config_ao(self, lowCh=0, highCh=1, **kwarg):
-        self.ao = mcc_ao(self, lowCh, highCh, 
+        self.ao = ni_ao(self, lowCh, highCh, 
                          info = self.daqinfo.get_ao_info(), **kwarg)
 
     class _listener:
@@ -163,21 +163,31 @@ class nidaq(daqBase):
 
 # %%
 # mcc AO class definition ------------------------------------------------------------------------
-class mcc_ao(aoBase):
+class ni_ao(aoBase):
     def __init__(self, daq, lowCh, highCh, **kwarg):
         # Copy docstring from the parent class for the methods
-        for method in getMethods(mcc_ao):
-            exec(f'mcc_ao.{method}.__doc__ = aoBase.{method}.__doc__')
+        for method in getMethods(ni_ao):
+            exec(f'ni_ao.{method}.__doc__ = aoBase.{method}.__doc__')
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
-        self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Output range +/- 10V
-        self.scanoption = (ScanOptions.CONTINUOUS | ScanOptions.BACKGROUND) # only support this mode for now
+        self.task = None
+        self.writer = None
+        self.range = self.info.supported_ranges[0] # Output range +/- 10V
+        # only support continuous background output mode for now
 
     def _assertVariable(self):
         super()._assertVariable()
-        # Add additional variables below if needed
         assert len(self.data) > 0, 'Nothing to output. Assign voltage data using \'ao.putdata(numpy.ndarray)\' first.'
+        
+        # Configure the task and channels
+        self.task= Task()
+        self.writer = AnalogMultiChannelWriter(self.task.out_stream, auto_start=False)
+        self.task.ao_channels.add_ao_voltage_chan(f'{self.daq.daqid}/ao{self.channel[0]}:{self.channel[1]}',
+                                                  min_val=self.range[0],
+                                                  max_val=self.range[1],
+                                                  )
+        #TODO - paused - 3/27/2025
 
     def start(self): # AO start
         if self.isrunning:
@@ -186,7 +196,8 @@ class mcc_ao(aoBase):
         self._assertVariable()
 
         try:
-            self.daq.eventlistener.start()
+            #TODO - paused - 3/27/2025
+            #self.daq.eventlistener.start() #TODO
             self.isrunning = True
             ul.a_out_scan(
                 self.daq.daqid,         # Board number
@@ -244,7 +255,7 @@ class mcc_ao(aoBase):
 
 # %%
 # mcc AI class definition ------------------------------------------------------------------------
-class nidaq_ai(aiBase):
+class ni_ai(aiBase):
     set_grounding = {'single-ended': TerminalConfiguration.NRSE,
                      'grounded': TerminalConfiguration.RSE,
                      'differential': TerminalConfiguration.DIFF} #cannot be defined in the inner class...
@@ -256,14 +267,14 @@ class nidaq_ai(aiBase):
     
     def __init__(self, daq, lowCh, highCh, **kwarg):
         # Copy docstring from the parent class for the methods
-        for method in getMethods(nidaq_ai):
-            exec(f'nidaq_ai.{method}.__doc__ = aiBase.{method}.__doc__')
+        for method in getMethods(ni_ai):
+            exec(f'ni_ai.{method}.__doc__ = aiBase.{method}.__doc__')
 
         # Initialization tasks
         super().__init__(daq, lowCh, highCh, **kwarg)
         self.task = None
         self.reader = None
-        self.range = self.info.supported_ranges[0] # ULRange.BIP10VOLTS  # Output range +/- 10V
+        self.range = self.info.supported_ranges[0] # Input range +/- 10V
         self.istransferring = False # is getdata() transferring data
         self.bufferSize = None # for all channels; calculated at _dataBroker.start()
         self.buffer = None # circular buffer
@@ -450,11 +461,12 @@ class nidaq_ai(aiBase):
             print('AI is running already')
             return
         self._assertVariable()
+        
+        # Configure the task and channels
         self.task = Task()
         self.reader = AnalogMultiChannelReader(self.task.in_stream)
-        # Add channel, set grounding type and range
         self.task.ai_channels.add_ai_voltage_chan(f'{self.daq.daqid}/ai{self.channel[0]}:{self.channel[1]}',
-                                                  terminal_config=nidaq_ai.set_grounding[self.grounding],
+                                                  terminal_config=ni_ai.set_grounding[self.grounding],
                                                   min_val=self.range[0],
                                                   max_val=self.range[1],
                                                   )
@@ -487,18 +499,13 @@ class nidaq_ai(aiBase):
 
         else: #self.trigRepeat must be >=1 integer
             self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.FINITE)
-            #TODO - paused - 3/26/2025
             if self.trigRepeat > 1:
-                self.scanoption |= ScanOptions.RETRIGMODE
-                ul.set_config(InfoType.BOARDINFO, self.daq.daqid, 0, BoardInfo.ADTRIGCOUNT, self.samplesPerTrig * self._Nch) # acquire aiSR*duration*Nch samples with each trigger
+                self.task.triggers.start_trigger.retriggerable = True
 
         if (self.trigRepeat != 1) and (self.samplesPerTrig in ['inf','Inf']):
             # self.samplesPerTrig = 1000
             # print(f'\033[33mai.samplesPerTrig cannot be \'inf\' when ai.trigRepeat > 1 -> changed to {self.samplesPerTrig}\033[0m')
             raise ValueError(f'ai.samplesPerTrig cannot be "inf" when ai.trigRepeat > 1.')
-            
-        if self.aqMode == 'background':
-            self.scanoption |= ScanOptions.BACKGROUND
         
         # Prep empty self.data list etc. for data storage in self._broker.extractdata()
         self.data = [[] for _ in range(self._Nch)] # use list instead of numpy array because appending data to numpy array is inefficient
@@ -508,6 +515,7 @@ class nidaq_ai(aiBase):
         self._trigTime = [] # for aitime generation
         
         # Start acquitision
+        #TODO - paused - 3/27/2025
         self._broker = self._dataBroker(self) # Set up data broker for memory allocation and data extraction
         self._broker.reset = True
         self._broker.start() # start transferring data; _broker has its own try-except clause
