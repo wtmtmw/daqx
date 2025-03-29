@@ -179,13 +179,11 @@ class ni_ao(aoBase):
                                                   min_val=self.range[0],
                                                   max_val=self.range[1],
                                                   )
-        # only support continuous background output mode for now
+        self._Nch = self.channel[1] - self.channel[0] + 1 # total number of channels
 
     def _assertVariable(self):
         super()._assertVariable()
         assert len(self.data) > 0, 'Nothing to output. Assign voltage data using \'ao.putdata(numpy.ndarray)\' first.'
-        
-        #TODO - paused - 3/27/2025
 
     def start(self): # AO start
         if self.isrunning:
@@ -241,10 +239,13 @@ class ni_ao(aoBase):
         if self.isrunning:
             print('AO is still running. putdata() aborted')
             return
-        assert type(voltage) == np.ndarray, 'Output data must be a numpy ndarray'
-        voltage = voltage.reshape(-1,order = 'F') # convert to 1D scan sequence
+        assert (type(voltage) == np.ndarray) and (len(voltage.shape) <= 2), 'Output data must be a 2D numpy ndarray of shape (N_channel,N_sample)'
+        assert voltage.shape[0] == self._Nch, f'Shape of the output array should be ({self._Nch},N_samples). It is {voltage.shape} now.'
         # convert to np.array so I don't need to worry about casting and memory management
-        self.data = np.array([ul.from_eng_units(self.daq.daqid, self.range, voltage[i]) for i in range(len(voltage))], dtype = np.uint16)
+        self.data = voltage
+        self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.CONTINUOUS, # only support continuous background output mode for now
+                                       samps_per_chan=self.data.size/self._Nch)
+        #TODO - paused - 3/28/2025 - this part is done
 
 
 
