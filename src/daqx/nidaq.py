@@ -158,9 +158,6 @@ class nidaq(daqBase):
                 self._update() # enure the last callback is executed
 
 
-# %% [markdown]
-# #### mcc_ao
-
 # %%
 # mcc AO class definition ------------------------------------------------------------------------
 class ni_ao(aoBase):
@@ -247,10 +244,6 @@ class ni_ao(aoBase):
                                        samps_per_chan=self.data.size/self._Nch)
         #TODO - paused - 3/28/2025 - this part is done
 
-
-
-# %% [markdown]
-# #### mcc_ai
 
 # %%
 # mcc AI class definition ------------------------------------------------------------------------
