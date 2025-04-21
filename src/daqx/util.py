@@ -25,6 +25,13 @@ def getMethods(cls):
     #e.g. methods = [('__init__', <function mccdaq.__init__ at 0x00000195C9995AB0>), ('config_ai', <function mccdaq.config_ai at 0x00000195C9996320>), ('config_ao', <function mccdaq.config_ao at 0x00000195C72D7490>)]
     return [member[0] for member in methods if not member[0].startswith('_')] # list of strings
             
+class container:
+    #container class; used for mimicing the struct data type
+    def __init__(self, **kwargs):
+        #print(type(kwargs)) #dict
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 class rptTimer:
     '''
     timerobj = rptTimer(interval, function, autodt=True, *arg, **kwarg)
