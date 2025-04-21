@@ -5,6 +5,7 @@ from nidaqmx.task import Task
 from nidaqmx.constants import TerminalConfiguration, Edge, AcquisitionType
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
 from nidaqmx.stream_readers import AnalogMultiChannelReader
+from nidaqmx.errors import DaqError
 # from mcculw.device_info import DaqDeviceInfo
 from math import ceil
 import traceback # error handling
@@ -16,17 +17,18 @@ import time
 class nidaq(daqBase):
     def __init__(self,daqid):
         super().__init__(daqid)
-        self.daqinfo.supported_ranges = [[-10,10],[-5,5]] # hard-code it for now TODO - improve...
+        # hard-code daqinfo for now TODO - improve...
+        self.daqinfo = container() #container obj, defined in util.py
+        self.daqinfo.supported_ranges = [[-10,10],[-5,5]]
         # self.eventlistener = self._listener(self) #TODO
 
-        
     def config_ai(self, lowCh=0, highCh=1, **kwarg):
         self.ai = ni_ai(self, lowCh, highCh,
                          info = self.daqinfo, **kwarg)
 
     def config_ao(self, lowCh=0, highCh=1, **kwarg):
         self.ao = ni_ao(self, lowCh, highCh, 
-                         info = self.daqinfo.get_ao_info(), **kwarg)
+                         info = self.daqinfo, **kwarg)
 
     class _listener:
         def __init__(self,daq,**kwarg):
@@ -178,6 +180,9 @@ class ni_ao(aoBase):
                                                   )
         self._Nch = self.channel[1] - self.channel[0] + 1 # total number of channels
 
+    def __del__(self):
+        self.task.close()
+
     def _assertVariable(self):
         super()._assertVariable()
         assert len(self.data) > 0, 'Nothing to output. Assign voltage data using \'ao.putdata(numpy.ndarray)\' first.'
@@ -189,37 +194,25 @@ class ni_ao(aoBase):
         self._assertVariable()
 
         try:
-            #TODO - paused - 3/27/2025
             #self.daq.eventlistener.start() #TODO
             self.isrunning = True
-            ul.a_out_scan(
-                self.daq.daqid,         # Board number
-                self.channel[0],    # Start channel
-                self.channel[1],    # End channel (same as start for single channel)
-                len(self.data),     # Number total samples
-                self.sampleRate,    # Rate of the scan
-                self.range,         # Range for the output
-                self.data.ctypes.data_as(ctypes.POINTER(ctypes.c_uint16)),  # The data buffer (converted to ctypes)
-                self.scanoption
-            )
-        except ul.ULError as e:
-            print("A ULError occurred. Code:", e.errorcode)
-            print("Check error code at: https://files.digilent.com/manuals/Mcculw_WebHelp/ULStart.htm")
+            self.task.start()
+        except DaqError as e:
+            print("A NI DaqError occurred: {e}")
             traceback.print_exc()
 
     def stop(self): # AO stop
         if not self.isrunning:
             print('AO has already stopped')
             return
-        ul.stop_background(self.daq.daqid, FunctionType.AOFUNCTION)
+        self.task.stop()
         if self.endMode == 'hold':
             pass
         elif self.endMode == 'zero':
-            #self.putvalue(np.zeros(self.channel[1] - self.channel[0] + 1))
-            for ch in range(self.channel[0],self.channel[1]+1):
-                ul.a_out(self.daq.daqid, ch, self.range, ul.from_eng_units(self.daq.daqid, self.range, 0))
+            print(self._Nch)
+            self.task.write(np.zeros(self._Nch))
         self.isrunning = False
-        self.daq.eventlistener.stop()
+        #self.daq.eventlistener.stop() #TODO
         
     def putvalue(self,voltage):
         if self.isrunning:
@@ -228,8 +221,8 @@ class ni_ao(aoBase):
         self.isrunning = True
         Nch = self.channel[1] - self.channel[0] + 1
         assert len(voltage) == Nch, f'len(voltage) must be equal to the number of channels: {Nch}'
-        for i,ch in enumerate(range(self.channel[0],self.channel[0]+Nch)):
-            ul.a_out(self.daq.daqid, ch, self.range, ul.from_eng_units(self.daq.daqid, self.range, voltage[i]))
+        #self.writer.write_one_sample(voltage)
+        self.task.write(voltage) #paused - 4/20/2025 - TODO - probably cannot mix write with writer
         self.isrunning = False
         
     def putdata(self,voltage):
@@ -238,11 +231,10 @@ class ni_ao(aoBase):
             return
         assert (type(voltage) == np.ndarray) and (len(voltage.shape) <= 2), 'Output data must be a 2D numpy ndarray of shape (N_channel,N_sample)'
         assert voltage.shape[0] == self._Nch, f'Shape of the output array should be ({self._Nch},N_samples). It is {voltage.shape} now.'
-        # convert to np.array so I don't need to worry about casting and memory management
         self.data = voltage
         self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.CONTINUOUS, # only support continuous background output mode for now
-                                       samps_per_chan=self.data.size/self._Nch)
-        #TODO - paused - 3/28/2025 - this part is done
+                                       samps_per_chan=self.data.shape[1])
+        self.writer.write_many_sample(self.data)
 
 
 # %%
