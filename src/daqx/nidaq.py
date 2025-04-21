@@ -209,8 +209,10 @@ class ni_ao(aoBase):
         if self.endMode == 'hold':
             pass
         elif self.endMode == 'zero':
-            print(self._Nch)
-            self.task.write(np.zeros(self._Nch))
+            self.writer.write_many_sample(np.zeros((self._Nch,2))) #need to have at least 2 samples/channel if timing is configured, which is true here
+            self.task.start() #because auto_start=False
+            time.sleep(0.001)
+            self.task.stop()
         self.isrunning = False
         #self.daq.eventlistener.stop() #TODO
         
@@ -221,8 +223,15 @@ class ni_ao(aoBase):
         self.isrunning = True
         Nch = self.channel[1] - self.channel[0] + 1
         assert len(voltage) == Nch, f'len(voltage) must be equal to the number of channels: {Nch}'
-        #self.writer.write_one_sample(voltage)
-        self.task.write(voltage) #paused - 4/20/2025 - TODO - probably cannot mix write with writer
+        if type(voltage) == list:
+            voltage = np.array(voltage)
+        voltage = voltage.reshape((-1,1)).repeat(2,axis=1) # to column vector and duplicate
+        #TODO - paused - 4/20/2025 - verify
+        self.writer.write_many_sample(voltage)
+        self.task.start() #because auto_start=False
+        time.sleep(0.001)
+        self.task.stop()
+        
         self.isrunning = False
         
     def putdata(self,voltage):
