@@ -196,6 +196,7 @@ class ni_ao(aoBase):
         try:
             #self.daq.eventlistener.start() #TODO
             self.isrunning = True
+            self.writer.write_many_sample(self.data)
             self.task.start()
         except DaqError as e:
             print("A NI DaqError occurred: {e}")
@@ -209,10 +210,14 @@ class ni_ao(aoBase):
         if self.endMode == 'hold':
             pass
         elif self.endMode == 'zero':
-            self.writer.write_many_sample(np.zeros((self._Nch,2))) #need to have at least 2 samples/channel if timing is configured, which is true here
-            self.task.start() #because auto_start=False
-            time.sleep(0.001)
-            self.task.stop()
+            try:
+                self.writer.write_many_sample(np.zeros((self._Nch,2))) #need to have at least 2 samples/channel if timing is configured, which is true here
+                self.task.start() #because auto_start=False
+                time.sleep(0.001)
+                self.task.stop()
+            except DaqError as e:
+                print("A NI DaqError occurred: {e}")
+                traceback.print_exc()
         self.isrunning = False
         #self.daq.eventlistener.stop() #TODO
         
@@ -224,14 +229,16 @@ class ni_ao(aoBase):
         Nch = self.channel[1] - self.channel[0] + 1
         assert len(voltage) == Nch, f'len(voltage) must be equal to the number of channels: {Nch}'
         if type(voltage) == list:
-            voltage = np.array(voltage)
+            voltage = np.array(voltage,dtype=np.float64)
         voltage = voltage.reshape((-1,1)).repeat(2,axis=1) # to column vector and duplicate
-        #TODO - paused - 4/20/2025 - verify
-        self.writer.write_many_sample(voltage)
-        self.task.start() #because auto_start=False
-        time.sleep(0.001)
-        self.task.stop()
-        
+        try:
+            self.writer.write_many_sample(voltage)
+            self.task.start() #because auto_start=False
+            time.sleep(0.001)
+            self.task.stop()
+        except DaqError as e:
+            print("A NI DaqError occurred: {e}")
+            traceback.print_exc()
         self.isrunning = False
         
     def putdata(self,voltage):
@@ -243,7 +250,7 @@ class ni_ao(aoBase):
         self.data = voltage
         self.task.timing.cfg_samp_clk_timing(rate=self.sampleRate, sample_mode=AcquisitionType.CONTINUOUS, # only support continuous background output mode for now
                                        samps_per_chan=self.data.shape[1])
-        self.writer.write_many_sample(self.data)
+        #self.writer.write_many_sample(self.data) #TW250421 - move to start() otherwise calling putvalue() will cause error once data are queued but have not been output
 
 
 # %%
